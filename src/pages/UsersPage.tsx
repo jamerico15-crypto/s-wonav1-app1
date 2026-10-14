@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { createClient } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { useRealtimeTable } from '@/lib/useRealtimeTable';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input, Select, Textarea } from '@/components/ui/Input';
+import { Modal } from '@/components/ui/Modal';
 import { MODULE_LABELS, ALL_MODULES } from '@/lib/constants';
 import type { Role, Permission, Profile, ModuleName, Project, ProjectAssignment } from '@/types';
 import { Plus, Trash2, Users, Shield, Check, Mail, CheckCircle2, ShieldCheck, LockKeyhole } from 'lucide-react';
@@ -16,6 +18,15 @@ interface UserRow {
   role_name: string | null;
   created_at: string;
 }
+
+interface NewUserForm {
+  fullName: string;
+  email: string;
+  password: string;
+  role: string;
+}
+
+const EMPTY_NEW_USER: NewUserForm = { fullName: '', email: '', password: '', role: '' };
 
 export function UsersPage() {
   const { data: profiles, loading: loadingProf, reload: reloadProfiles } = useRealtimeTable<Profile & { email?: string | null }>('profiles', {
@@ -34,6 +45,11 @@ export function UsersPage() {
   const [loadingAssignments, setLoadingAssignments] = useState(true);
   const [assignmentError, setAssignmentError] = useState<string | null>(null);
   const [savingAssignment, setSavingAssignment] = useState<string | null>(null);
+  const [createUserOpen, setCreateUserOpen] = useState(false);
+  const [newUser, setNewUser] = useState<NewUserForm>(EMPTY_NEW_USER);
+  const [creatingUser, setCreatingUser] = useState(false);
+  const [createUserError, setCreateUserError] = useState<string | null>(null);
+  const [createUserSuccess, setCreateUserSuccess] = useState<string | null>(null);
   const loading = loadingProf || loadingRoles || loadingProjects || loadingAssignments;
   const [tab, setTab] = useState<'users' | 'roles' | 'permissions'>('users');
 
@@ -75,6 +91,54 @@ export function UsersPage() {
       return;
     }
     reloadProfiles();
+  }
+
+  async function createUser(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!newUser.role) {
+      setCreateUserError('Selecione um cargo para o novo utilizador.');
+      return;
+    }
+    if (newUser.password.length < 8) {
+      setCreateUserError('A palavra-passe deve ter pelo menos 8 caracteres.');
+      return;
+    }
+
+    setCreatingUser(true);
+    setCreateUserError(null);
+    setCreateUserSuccess(null);
+    try {
+      const signupClient = createClient(
+        (import.meta.env.VITE_SUPABASE_URL || import.meta.env.NEXT_PUBLIC_SUPABASE_URL || '').trim(),
+        (import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '').trim(),
+        { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } },
+      );
+      const { data, error } = await signupClient.auth.signUp({
+        email: newUser.email.trim(),
+        password: newUser.password,
+        options: { data: { full_name: newUser.fullName.trim() } },
+      });
+      if (error) throw error;
+      if (!data.user) throw new Error('O Supabase não devolveu o novo utilizador.');
+
+      const { error: roleError } = await supabase.rpc('admin_assign_role_text', {
+        target_profile_id: data.user.id,
+        new_role: newUser.role,
+      });
+      if (roleError) {
+        throw new Error(`A conta foi criada, mas não foi possível atribuir o cargo: ${roleError.message}`);
+      }
+
+      setCreateUserSuccess(data.session
+        ? 'Utilizador criado e cargo atribuído com sucesso.'
+        : 'Utilizador criado e cargo atribuído. O Supabase poderá enviar um email para confirmar a conta.');
+      setNewUser(EMPTY_NEW_USER);
+      await reloadProfiles();
+    } catch (error) {
+      setCreateUserError(error instanceof Error ? error.message : 'Não foi possível criar o utilizador.');
+    } finally {
+      setCreatingUser(false);
+    }
   }
 
   async function toggleProjectAssignment(userId: string, projectId: string, assigned: boolean) {
@@ -155,6 +219,15 @@ export function UsersPage() {
       {/* Users tab */}
       {tab === 'users' && (
         <div className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">Utilizadores</h2>
+              <p className="text-sm text-slate-500">Crie contas, atribua cargos e limite o acesso a projetos.</p>
+            </div>
+            <Button onClick={() => { setCreateUserError(null); setCreateUserSuccess(null); setCreateUserOpen(true); }}>
+              <Plus className="h-4 w-4" /> Adicionar Utilizador
+            </Button>
+          </div>
           {assignmentError && (
             <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
               Não foi possível carregar ou atualizar os projetos autorizados: {assignmentError}
@@ -277,6 +350,26 @@ export function UsersPage() {
               </div>
             </CardContent>
           </Card>
+
+          <Modal open={createUserOpen} onClose={() => !creatingUser && setCreateUserOpen(false)} title="Adicionar utilizador">
+            <form className="space-y-4" onSubmit={createUser}>
+              <Input label="Nome completo" autoComplete="name" required value={newUser.fullName} onChange={event => setNewUser(current => ({ ...current, fullName: event.target.value }))} />
+              <Input label="Email" type="email" autoComplete="email" required value={newUser.email} onChange={event => setNewUser(current => ({ ...current, email: event.target.value }))} />
+              <Input label="Palavra-passe temporária" type="password" autoComplete="new-password" minLength={8} required value={newUser.password} onChange={event => setNewUser(current => ({ ...current, password: event.target.value }))} />
+              <Select label="Cargo" required value={newUser.role} onChange={event => setNewUser(current => ({ ...current, role: event.target.value }))}>
+                <option value="">Selecione um cargo...</option>
+                {roles.map(role => <option key={role.id} value={role.name}>{role.name} — {role.description || 'Sem descrição'}</option>)}
+              </Select>
+              {createUserError && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">{createUserError}</p>}
+              {createUserSuccess && <p role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{createUserSuccess}</p>}
+              <div className="flex justify-end gap-3 pt-2">
+                <Button type="button" variant="outline" disabled={creatingUser} onClick={() => setCreateUserOpen(false)}>Fechar</Button>
+                <Button type="submit" disabled={creatingUser || roles.length === 0}>
+                  <Plus className="h-4 w-4" /> {creatingUser ? 'A criar…' : 'Criar Utilizador'}
+                </Button>
+              </div>
+            </form>
+          </Modal>
         </div>
       )}
 
