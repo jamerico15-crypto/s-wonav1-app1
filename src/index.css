@@ -1,0 +1,83 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --app-font: 'Inter', sans-serif;
+  --color-primary: #EE3A25;
+  --color-secondary: #711246;
+}
+
+body {
+  font-family: var(--app-font), system-ui, -apple-system, sans-serif;
+}
+
+/* Dashboard-local dark theme: only dashboard surfaces are affected. */
+.dashboard-theme-dark .dashboard-card,
+.dashboard-theme-dark .dashboard-surface {
+  background-color: #0f172a !important;
+  border-color: #334155 !important;
+  color: #f1f5f9;
+}
+
+.dashboard-theme-dark .dashboard-card .border-b,
+.dashboard-theme-dark .dashboard-card .border-t {
+  border-color: #334155 !important;
+}
+
+.dashboard-theme-dark .dashboard-card .text-slate-900,
+.dashboard-theme-dark .dashboard-card .text-slate-800,
+.dashboard-theme-dark .dashboard-card .text-slate-700,
+.dashboard-theme-dark .dashboard-card .text-slate-600,
+.dashboard-theme-dark .dashboard-surface .text-slate-900,
+.dashboard-theme-dark .dashboard-surface .text-slate-800,
+.dashboard-theme-dark .dashboard-surface .text-slate-700,
+.dashboard-theme-dark .dashboard-surface .text-slate-600 {
+  color: #e2e8f0 !important;
+}
+
+.dashboard-theme-dark .dashboard-card .text-slate-500,
+.dashboard-theme-dark .dashboard-card .text-slate-400,
+.dashboard-theme-dark .dashboard-surface .text-slate-500,
+.dashboard-theme-dark .dashboard-surface .text-slate-400 {
+  color: #94a3b8 !important;
+}
+
+.dashboard-theme-dark .dashboard-root .text-slate-900,
+.dashboard-theme-dark .dashboard-root .text-slate-800,
+.dashboard-theme-dark .dashboard-root .text-slate-700,
+.dashboard-theme-dark .dashboard-root .text-slate-600 {
+  color: #e2e8f0 !important;
+}
+
+.dashboard-theme-dark .dashboard-root .text-slate-500,
+.dashboard-theme-dark .dashboard-root .text-slate-400 {
+  color: #94a3b8 !important;
+}
+
+.dashboard-theme-dark .dashboard-card .bg-slate-50,
+.dashboard-theme-dark .dashboard-surface .bg-slate-50 {
+  background-color: #1e293b !important;
+}
+
+.dashboard-theme-dark .dashboard-select {
+  color: #e2e8f0;
+  border-color: #475569;
+  background-color: #0f172a !important;
+}
+
+/* Smooth scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
